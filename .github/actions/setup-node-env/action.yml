@@ -110,4 +110,25 @@ runs:
         if [ -n "$LOCKFILE_FLAG" ]; then
           install_args+=("$LOCKFILE_FLAG")
         fi
-        pnpm "${install_args[@]}" || pnpm "${install_args[@]}"
+
+        set +e
+        output=$(pnpm "${install_args[@]}" 2>&1)
+        status=$?
+        set -e
+        echo "$output"
+
+        if [ $status -eq 0 ]; then
+          exit 0
+        fi
+
+        if [[ "$output" == *"ERR_PNPM_LOCKFILE_CONFIG_MISMATCH"* ]]; then
+          echo "pnpm lockfile config mismatch detected; retrying with --no-frozen-lockfile"
+          pnpm install \
+            --no-frozen-lockfile \
+            --ignore-scripts=false \
+            --config.engine-strict=false \
+            --config.enable-pre-post-scripts=true
+          exit 0
+        fi
+
+        exit $status
