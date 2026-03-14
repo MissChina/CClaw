@@ -1,0 +1,103 @@
+name: GitHub Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+concurrency:
+  group: github-release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24.x"
+  PNPM_VERSION: "10.23.0"
+
+jobs:
+  build_release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node environment
+        uses: ./.github/actions/setup-node-env
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          pnpm-version: ${{ env.PNPM_VERSION }}
+          install-bun: "false"
+          use-sticky-disk: "false"
+
+      - name: Resolve release version
+        id: vars
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_REF_NAME}"
+          version="${tag#v}"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate release tag and package metadata
+        env:
+          RELEASE_SHA: ${{ github.sha }}
+          RELEASE_TAG: ${{ steps.vars.outputs.tag }}
+          RELEASE_MAIN_REF: origin/main
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
+          pnpm release:openclaw:npm:check
+
+      - name: Check
+        run: pnpm check
+
+      - name: Build
+        run: pnpm build
+
+      - name: Verify release contents
+        run: pnpm release:check
+
+      - name: Pack npm release artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p .artifacts/release-assets
+          npm pack --pack-destination .artifacts/release-assets
+
+      - name: Generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd .artifacts/release-assets
+          sha256sum * > SHA256SUMS.txt
+
+      - name: Generate release notes and metadata
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          node --import tsx scripts/generate-release-files.ts \
+            --version "${{ steps.vars.outputs.version }}" \
+            --tag "${{ steps.vars.outputs.tag }}" \
+            --repo "$GITHUB_REPOSITORY" \
+            --commit "$GITHUB_SHA" \
+            --artifacts-dir .artifacts/release-assets \
+            --output-dir .artifacts/release
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.vars.outputs.tag }}
+          name: OpenClaw ${{ steps.vars.outputs.version }}
+          body_path: .artifacts/release/release-body.md
+          fail_on_unmatched_files: true
+          files: |
+            .artifacts/release-assets/*
+            .artifacts/release/release-notes.en.md
+            .artifacts/release/release-notes.zh-CN.md
+            .artifacts/release/release-metadata.json
