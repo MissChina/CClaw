@@ -63,25 +63,16 @@ jobs:
 
       - name: Check if release already exists
         id: release_state
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const tag = `${{ steps.vars.outputs.tag }}`;
-            try {
-              const release = await github.rest.repos.getReleaseByTag({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                tag,
-              });
-              core.setOutput('exists', 'true');
-              core.setOutput('release_id', String(release.data.id));
-            } catch (error) {
-              if (error.status === 404) {
-                core.setOutput('exists', 'false');
-                return;
-              }
-              throw error;
-            }
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if gh release view "${{ steps.vars.outputs.tag }}" --repo "${{ github.repository }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Decide whether to publish
         id: gate
@@ -158,18 +149,19 @@ jobs:
             --artifacts-dir .artifacts/release-assets \
             --output-dir .artifacts/release
 
-      - name: Publish GitHub release
+      - name: Publish GitHub release with gh
         if: steps.gate.outputs.should_publish == 'true'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ steps.vars.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: OpenClaw ${{ steps.vars.outputs.version }}
-          body_path: .artifacts/release/release-body.md
-          fail_on_unmatched_files: true
-          generate_release_notes: false
-          files: |
-            .artifacts/release-assets/*
-            .artifacts/release/release-notes.en.md
-            .artifacts/release/release-notes.zh-CN.md
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh release create "${{ steps.vars.outputs.tag }}" \
+            --repo "${{ github.repository }}" \
+            --target "${GITHUB_SHA}" \
+            --title "OpenClaw ${{ steps.vars.outputs.version }}" \
+            --notes-file .artifacts/release/release-body.md \
+            .artifacts/release-assets/* \
+            .artifacts/release/release-notes.en.md \
+            .artifacts/release/release-notes.zh-CN.md \
             .artifacts/release/release-metadata.json
