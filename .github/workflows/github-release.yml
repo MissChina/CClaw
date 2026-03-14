@@ -4,9 +4,19 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version, for example 2026.3.14 or 2026.3.14-beta.1"
+        required: true
+      create_tag:
+        description: "Create and push the release tag before publishing"
+        required: false
+        type: boolean
+        default: true
 
 concurrency:
-  group: github-release-${{ github.ref }}
+  group: github-release-${{ github.ref || github.run_id }}
   cancel-in-progress: false
 
 env:
@@ -37,10 +47,40 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          tag="${GITHUB_REF_NAME}"
-          version="${tag#v}"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            version="${{ inputs.version }}"
+            tag="v${version}"
+          else
+            tag="${GITHUB_REF_NAME}"
+            version="${tag#v}"
+          fi
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate package version matches requested release
+        if: github.event_name == 'workflow_dispatch'
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$package_version" != "${{ steps.vars.outputs.version }}" ]]; then
+            echo "::error::package.json version ${package_version} does not match requested release version ${{ steps.vars.outputs.version }}"
+            exit 1
+          fi
+
+      - name: Create and push release tag
+        if: github.event_name == 'workflow_dispatch' && inputs.create_tag
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${{ steps.vars.outputs.tag }}"
+          git fetch --tags origin
+          if git rev-parse "$tag" >/dev/null 2>&1; then
+            echo "::error::Tag $tag already exists locally or on remote."
+            exit 1
+          fi
+          git tag "$tag"
+          git push origin "$tag"
 
       - name: Validate release tag and package metadata
         env:

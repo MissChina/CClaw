@@ -2,16 +2,15 @@ name: Workflow Sanity
 
 on:
   pull_request:
-  push:
-    branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: workflow-sanity-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: workflow-sanity-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref || github.run_id }}
+  cancel-in-progress: true
 
 jobs:
   no-tabs:
-    runs-on: blacksmith-16vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,25 +23,22 @@ jobs:
           import pathlib
           import sys
 
-          root = pathlib.Path(".github/workflows")
+          root = pathlib.Path('.github/workflows')
           bad: list[str] = []
-          for path in sorted(root.rglob("*.yml")):
-            if b"\t" in path.read_bytes():
-              bad.append(str(path))
-
-          for path in sorted(root.rglob("*.yaml")):
-            if b"\t" in path.read_bytes():
-              bad.append(str(path))
+          for pattern in ('*.yml', '*.yaml'):
+              for path in sorted(root.rglob(pattern)):
+                  if b'\t' in path.read_bytes():
+                      bad.append(str(path))
 
           if bad:
-            print("Tabs found in workflow file(s):")
-            for path in bad:
-              print(f"- {path}")
-            sys.exit(1)
+              print('Tabs found in workflow file(s):')
+              for path in bad:
+                  print(f'- {path}')
+              sys.exit(1)
           PY
 
   actionlint:
-    runs-on: blacksmith-16vcpu-ubuntu-2404
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -56,7 +52,7 @@ jobs:
           base_url="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}"
           curl -sSfL -o "${archive}" "${base_url}/${archive}"
           curl -sSfL -o checksums.txt "${base_url}/actionlint_${ACTIONLINT_VERSION}_checksums.txt"
-          grep " ${archive}\$" checksums.txt | sha256sum -c -
+          grep " ${archive}$" checksums.txt | sha256sum -c -
           tar -xzf "${archive}" actionlint
           sudo install -m 0755 actionlint /usr/local/bin/actionlint
 

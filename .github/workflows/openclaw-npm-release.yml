@@ -1,12 +1,14 @@
 name: OpenClaw NPM Release
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Package version to publish; must match package.json"
+        required: true
 
 concurrency:
-  group: openclaw-npm-release-${{ github.ref }}
+  group: openclaw-npm-release-${{ github.ref || github.run_id }}
   cancel-in-progress: false
 
 env:
@@ -15,7 +17,6 @@ env:
 
 jobs:
   publish_openclaw_npm:
-    # npm trusted publishing + provenance requires a GitHub-hosted runner.
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -34,15 +35,23 @@ jobs:
           install-bun: "false"
           use-sticky-disk: "false"
 
-      - name: Validate release tag and package metadata
+      - name: Validate requested version
+        shell: bash
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "$package_version" != "${{ inputs.version }}" ]]; then
+            echo "::error::package.json version ${package_version} does not match requested publish version ${{ inputs.version }}"
+            exit 1
+          fi
+
+      - name: Validate release package metadata
         env:
           RELEASE_SHA: ${{ github.sha }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TAG: v${{ inputs.version }}
           RELEASE_MAIN_REF: origin/main
         run: |
           set -euo pipefail
-          # Fetch the full main ref so merge-base ancestry checks keep working
-          # for older tagged commits that are still contained in main.
           git fetch --no-tags origin +refs/heads/main:refs/remotes/origin/main
           pnpm release:openclaw:npm:check
 
@@ -50,12 +59,10 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-
           if npm view "openclaw@${PACKAGE_VERSION}" version >/dev/null 2>&1; then
             echo "openclaw@${PACKAGE_VERSION} is already published on npm."
             exit 1
           fi
-
           echo "Publishing openclaw@${PACKAGE_VERSION}"
 
       - name: Check
@@ -71,7 +78,6 @@ jobs:
         run: |
           set -euo pipefail
           PACKAGE_VERSION=$(node -p "require('./package.json').version")
-
           if [[ "$PACKAGE_VERSION" == *-beta.* ]]; then
             npm publish --access public --tag beta --provenance
           else
