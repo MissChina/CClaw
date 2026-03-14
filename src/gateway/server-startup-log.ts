@@ -39,7 +39,8 @@ export function logGatewayStartup(params: {
   });
   if (params.isNixMode) {
     params.log.info("gateway: running in Nix mode (config managed externally)", {
-      consoleMessage: "gateway: running in Nix mode (config managed externally) | 当前为 Nix 托管模式，配置通常不建议直接手改",
+      consoleMessage:
+        "gateway: running in Nix mode (config managed externally) | 当前为 Nix 托管模式，配置通常不建议直接手改",
     });
   }
 
@@ -49,8 +50,7 @@ export function logGatewayStartup(params: {
       `security warning: dangerous config flags enabled: ${enabledDangerousFlags.join(", ")}. ` +
       "Run `openclaw security audit`.";
     params.log.warn(warning, {
-      consoleMessage:
-        `${warning} | 检测到高风险配置，建议尽快执行 openclaw security audit 复查。`,
+      consoleMessage: `${warning} | 检测到高风险配置，建议尽快执行 openclaw security audit 复查。`,
     });
   }
 }

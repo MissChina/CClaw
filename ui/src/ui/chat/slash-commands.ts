@@ -18,13 +18,56 @@ export type SlashCommandDef = {
 };
 
 export const SLASH_COMMANDS: SlashCommandDef[] = [
-  { name: "new", description: "Start a new session", icon: "plus", category: "session", executeLocal: true },
-  { name: "reset", description: "Reset current session", icon: "refresh", category: "session", executeLocal: true },
-  { name: "compact", description: "Compact session context", icon: "loader", category: "session", executeLocal: true },
-  { name: "stop", description: "Stop current run", icon: "stop", category: "session", executeLocal: true },
-  { name: "clear", description: "Clear chat history", icon: "trash", category: "session", executeLocal: true },
-  { name: "focus", description: "Toggle focus mode", icon: "eye", category: "session", executeLocal: true },
-  { name: "model", description: "Show or set model", args: "<name>", icon: "brain", category: "model", executeLocal: true },
+  {
+    name: "new",
+    description: "Start a new session",
+    icon: "plus",
+    category: "session",
+    executeLocal: true,
+  },
+  {
+    name: "reset",
+    description: "Reset current session",
+    icon: "refresh",
+    category: "session",
+    executeLocal: true,
+  },
+  {
+    name: "compact",
+    description: "Compact session context",
+    icon: "loader",
+    category: "session",
+    executeLocal: true,
+  },
+  {
+    name: "stop",
+    description: "Stop current run",
+    icon: "stop",
+    category: "session",
+    executeLocal: true,
+  },
+  {
+    name: "clear",
+    description: "Clear chat history",
+    icon: "trash",
+    category: "session",
+    executeLocal: true,
+  },
+  {
+    name: "focus",
+    description: "Toggle focus mode",
+    icon: "eye",
+    category: "session",
+    executeLocal: true,
+  },
+  {
+    name: "model",
+    description: "Show or set model",
+    args: "<name>",
+    icon: "brain",
+    category: "model",
+    executeLocal: true,
+  },
   {
     name: "think",
     description: "Set thinking level",
@@ -52,14 +95,51 @@ export const SLASH_COMMANDS: SlashCommandDef[] = [
     executeLocal: true,
     argOptions: ["status", "on", "off"],
   },
-  { name: "help", description: "Show available commands", icon: "book", category: "tools", executeLocal: true },
+  {
+    name: "help",
+    description: "Show available commands",
+    icon: "book",
+    category: "tools",
+    executeLocal: true,
+  },
   { name: "status", description: "Show session status", icon: "barChart", category: "tools" },
-  { name: "export", description: "Export session to Markdown", icon: "download", category: "tools", executeLocal: true },
-  { name: "usage", description: "Show token usage", icon: "barChart", category: "tools", executeLocal: true },
-  { name: "agents", description: "List agents", icon: "monitor", category: "agents", executeLocal: true },
-  { name: "kill", description: "Abort sub-agents", args: "<id|all>", icon: "x", category: "agents", executeLocal: true },
+  {
+    name: "export",
+    description: "Export session to Markdown",
+    icon: "download",
+    category: "tools",
+    executeLocal: true,
+  },
+  {
+    name: "usage",
+    description: "Show token usage",
+    icon: "barChart",
+    category: "tools",
+    executeLocal: true,
+  },
+  {
+    name: "agents",
+    description: "List agents",
+    icon: "monitor",
+    category: "agents",
+    executeLocal: true,
+  },
+  {
+    name: "kill",
+    description: "Abort sub-agents",
+    args: "<id|all>",
+    icon: "x",
+    category: "agents",
+    executeLocal: true,
+  },
   { name: "skill", description: "Run a skill", args: "<name>", icon: "zap", category: "tools" },
-  { name: "steer", description: "Steer a sub-agent", args: "<id> <msg>", icon: "send", category: "agents" },
+  {
+    name: "steer",
+    description: "Steer a sub-agent",
+    args: "<id> <msg>",
+    icon: "send",
+    category: "agents",
+  },
 ];
 
 const CATEGORY_ORDER: SlashCommandCategory[] = ["session", "model", "tools", "agents"];
@@ -88,7 +168,9 @@ export function getSlashCommandCompletions(filter: string): SlashCommandDef[] {
     ? SLASH_COMMANDS.filter((cmd) => {
         const description = getSlashCommandDescription(cmd).toLowerCase();
         const category = getSlashCommandCategoryLabel(cmd.category ?? "session").toLowerCase();
-        return cmd.name.startsWith(lower) || description.includes(lower) || category.includes(lower);
+        return (
+          cmd.name.startsWith(lower) || description.includes(lower) || category.includes(lower)
+        );
       })
     : SLASH_COMMANDS;
   return commands.toSorted((a, b) => {

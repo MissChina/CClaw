@@ -184,11 +184,13 @@ export const en: TranslationMap = {
     fallbackActive: "Fallback active: {active}",
     fallbackCleared: "Fallback restored: {active}",
     fallbackDetailsActive: "Selected: {selected} • Active: {active}",
-    fallbackDetailsCleared: "Selected: {selected} • Active: {active} • Previous fallback: {previous}",
+    fallbackDetailsCleared:
+      "Selected: {selected} • Active: {active} • Previous fallback: {previous}",
     welcomeReady: "Ready to chat",
     welcomeSlashBadge: "Slash commands",
     welcomeHint: "Type a message below · <kbd>/</kbd> for commands",
-    welcomeSubhint: "Use the suggestions to get started, or open the command menu for quick session actions.",
+    welcomeSubhint:
+      "Use the suggestions to get started, or open the command menu for quick session actions.",
     welcomeSuggestionWhat: "What can you do?",
     welcomeSuggestionSessions: "Summarize my recent sessions",
     welcomeSuggestionChannel: "Help me configure a channel",

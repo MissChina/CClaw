@@ -574,7 +574,8 @@ function getWelcomeSuggestions() {
 }
 
 function openChatFilePicker(event: Event) {
-  const root = (event.currentTarget as HTMLElement | null)?.closest(".agent-chat__input") ?? document;
+  const root =
+    (event.currentTarget as HTMLElement | null)?.closest(".agent-chat__input") ?? document;
   root.querySelector<HTMLInputElement>(".agent-chat__file-input")?.click();
 }
 

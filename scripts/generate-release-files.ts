@@ -1,8 +1,8 @@
 #!/usr/bin/env -S node --import tsx
 
+import { createHash } from "node:crypto";
 import { mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
-import { createHash } from "node:crypto";
 
 type CliOptions = {
   outputDir: string;
@@ -64,11 +64,8 @@ function readPackageVersion(): string {
 function extractChangelogSection(version: string): ParsedChangelogSection {
   const changelog = readFileSync(resolve("CHANGELOG.md"), "utf8");
   const escapedVersion = version.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const versionRegex = new RegExp(
-    `^## ${escapedVersion}\\r?\\n([\\s\\S]*?)(?=^## |\\Z)`,
-    "m",
-  );
-  const unreleasedRegex = /^## Unreleased\r?\n([\s\S]*?)(?=^## |\Z)/m;
+  const versionRegex = new RegExp(`^## ${escapedVersion}\\r?\\n([\\s\\S]*?)(?=^## |\\Z)`, "m");
+  const unreleasedRegex = /^## Unreleased\r?\n([\s\S]*?)(?=^## |$)/m;
 
   const versionMatch = versionRegex.exec(changelog);
   const unreleasedMatch = unreleasedRegex.exec(changelog);
@@ -124,7 +121,7 @@ function listArtifacts(dir: string): Array<{ name: string; size: number; sha256:
   return readdirSync(dir)
     .map((name) => ({ name, path: join(dir, name) }))
     .filter((entry) => statSync(entry.path).isFile())
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .toSorted((a, b) => a.name.localeCompare(b.name))
     .map((entry) => ({
       name: entry.name,
       size: statSync(entry.path).size,
@@ -231,9 +228,7 @@ function buildChineseNotes(params: {
   const sectionLines = params.changelog.headings.flatMap((section) => [
     `### ${toChineseTitle(section.title)}`,
     "",
-    ...(section.bullets.length > 0
-      ? section.bullets.map((bullet) => `- ${bullet}`)
-      : ["- 无"]),
+    ...(section.bullets.length > 0 ? section.bullets.map((bullet) => `- ${bullet}`) : ["- 无"]),
     "",
   ]);
 

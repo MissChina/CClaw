@@ -183,7 +183,8 @@ export const zh_CN: TranslationMap = {
     fallbackActive: "已启用回退模型：{active}",
     fallbackCleared: "已恢复首选模型：{active}",
     fallbackDetailsActive: "已选模型：{selected} · 当前模型：{active}",
-    fallbackDetailsCleared: "已选模型：{selected} · 当前模型：{active} · 上一个回退模型：{previous}",
+    fallbackDetailsCleared:
+      "已选模型：{selected} · 当前模型：{active} · 上一个回退模型：{previous}",
     welcomeReady: "可以开始聊天了",
     welcomeSlashBadge: "快捷命令",
     welcomeHint: "在下方输入消息 · 输入 <kbd>/</kbd> 查看命令",

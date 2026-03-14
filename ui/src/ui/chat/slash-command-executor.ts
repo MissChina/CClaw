@@ -148,7 +148,10 @@ async function executeModel(
 
   try {
     await client.request("sessions.patch", { key: sessionKey, model: args.trim() });
-    return { content: t("chat.slash.results.modelSet", { model: `\`${args.trim()}\`` }), action: "refresh" };
+    return {
+      content: t("chat.slash.results.modelSet", { model: `\`${args.trim()}\`` }),
+      action: "refresh",
+    };
   } catch (err) {
     return { content: t("chat.slash.results.modelSetError", { error: String(err) }) };
   }
@@ -276,7 +279,9 @@ async function executeFast(
   try {
     await client.request("sessions.patch", { key: sessionKey, fastMode: rawMode === "on" });
     return {
-      content: t(rawMode === "on" ? "chat.slash.results.fastEnabled" : "chat.slash.results.fastDisabled"),
+      content: t(
+        rawMode === "on" ? "chat.slash.results.fastEnabled" : "chat.slash.results.fastDisabled",
+      ),
       action: "refresh",
     };
   } catch (err) {
@@ -307,7 +312,9 @@ async function executeUsage(
       t("chat.slash.results.usageTotal", { tokens: fmtTokens(total) }),
     ];
     if (pct !== null) {
-      lines.push(t("chat.slash.results.usageContext", { pct: String(pct), tokens: fmtTokens(ctx) }));
+      lines.push(
+        t("chat.slash.results.usageContext", { pct: String(pct), tokens: fmtTokens(ctx) }),
+      );
     }
     if (session.model) {
       lines.push(t("chat.slash.results.usageModel", { model: `\`${session.model}\`` }));

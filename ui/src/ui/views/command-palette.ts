@@ -1,10 +1,7 @@
 import { html, nothing } from "lit";
 import { ref } from "lit/directives/ref.js";
 import { t } from "../../i18n/index.ts";
-import {
-  SLASH_COMMANDS,
-  getSlashCommandDescription,
-} from "../chat/slash-commands.ts";
+import { SLASH_COMMANDS, getSlashCommandDescription } from "../chat/slash-commands.ts";
 import { icons, type IconName } from "../icons.ts";
 import { titleForTab } from "../navigation.ts";
 
@@ -110,8 +107,8 @@ function filteredItems(query: string): PaletteItem[] {
     return getPaletteItemsInternal();
   }
   const q = query.toLowerCase();
-  return PALETTE_ITEMS.filter(
-    (item) =>
+  return getPaletteItemsInternal().filter(
+    (item: PaletteItem) =>
       item.label.toLowerCase().includes(q) ||
       (item.description?.toLowerCase().includes(q) ?? false),
   );
