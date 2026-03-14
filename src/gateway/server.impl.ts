@@ -368,7 +368,10 @@ export async function startGatewayServer(
         if (secretsDegraded) {
           const recoveredMessage =
             "Secret resolution recovered; runtime remained on last-known-good during the outage.";
-          logSecrets.info(`[SECRETS_RELOADER_RECOVERED] ${recoveredMessage}`);
+          logSecrets.info(`[SECRETS_RELOADER_RECOVERED] ${recoveredMessage}`, {
+            consoleMessage:
+              `[SECRETS_RELOADER_RECOVERED] ${recoveredMessage} | 密钥解析已恢复，运行时继续沿用故障期间的最近可用快照。`,
+          });
           emitSecretsStateEvent("SECRETS_RELOADER_RECOVERED", recoveredMessage, prepared.config);
         }
         secretsDegraded = false;
@@ -376,7 +379,10 @@ export async function startGatewayServer(
       } catch (err) {
         const details = String(err);
         if (!secretsDegraded) {
-          logSecrets.error(`[SECRETS_RELOADER_DEGRADED] ${details}`);
+          logSecrets.error(`[SECRETS_RELOADER_DEGRADED] ${details}`, {
+            consoleMessage:
+              `[SECRETS_RELOADER_DEGRADED] ${details} | 密钥解析失败：如果这是启动阶段，网关会拒绝继续启动；如果是运行中刷新，则继续使用最近一次可用快照。`,
+          });
           if (params.reason !== "startup") {
             emitSecretsStateEvent(
               "SECRETS_RELOADER_DEGRADED",
@@ -385,7 +391,10 @@ export async function startGatewayServer(
             );
           }
         } else {
-          logSecrets.warn(`[SECRETS_RELOADER_DEGRADED] ${details}`);
+          logSecrets.warn(`[SECRETS_RELOADER_DEGRADED] ${details}`, {
+            consoleMessage:
+              `[SECRETS_RELOADER_DEGRADED] ${details} | 密钥解析仍未恢复，当前继续保持降级运行状态。`,
+          });
         }
         secretsDegraded = true;
         if (params.reason === "startup") {
