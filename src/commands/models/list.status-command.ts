@@ -286,6 +286,8 @@ export async function modelsStatusCommand(
       reason?: string;
       until: number;
       remainingMs: number;
+      monthlyDisabledPeriod?: string;
+      monthlyDisabledReason?: string;
     }> = [];
     for (const profileId of Object.keys(store.usageStats ?? {})) {
       const unusableUntil = resolveProfileUnusableUntilForDisplay(store, profileId);
@@ -304,6 +306,8 @@ export async function modelsStatusCommand(
         reason: stats?.disabledReason,
         until: unusableUntil,
         remainingMs: unusableUntil - now,
+        monthlyDisabledPeriod: stats?.monthlyDisabledPeriod,
+        monthlyDisabledReason: stats?.monthlyDisabledReason,
       });
     }
     return out.toSorted((a, b) => a.remainingMs - b.remainingMs);
@@ -622,6 +626,22 @@ export async function modelsStatusCommand(
               : " expires unknown";
         runtime.log(`  - ${label} ${status}${expiry}`);
       }
+    }
+  }
+
+  if (unusableProfiles.length > 0) {
+    runtime.log("");
+    runtime.log(colorize(rich, theme.heading, "Unavailable auth profiles"));
+    for (const entry of unusableProfiles) {
+      const remaining = formatRemainingShort(entry.remainingMs);
+      const reason = entry.reason ? `:${entry.reason}` : "";
+      const monthly =
+        entry.monthlyDisabledPeriod && entry.monthlyDisabledReason === "billing"
+          ? colorize(rich, theme.warn, ` · monthly-marked=${entry.monthlyDisabledPeriod} (billing)`)
+          : "";
+      runtime.log(
+        `- ${colorize(rich, theme.accent, entry.profileId)} ${colorize(rich, theme.warn, `${entry.kind}${reason}`)} ${colorize(rich, theme.muted, `(${remaining})`)}${monthly}`,
+      );
     }
   }
 

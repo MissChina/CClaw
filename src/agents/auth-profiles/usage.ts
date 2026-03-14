@@ -358,12 +358,42 @@ export function resolveProfileUnusableUntilForDisplay(
   return resolveProfileUnusableUntil(stats);
 }
 
+function getCurrentBillingPeriodKey(now: number): string {
+  const date = new Date(now);
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  return `${year}-${month}`;
+}
+
+function normalizeMonthlyDisabledMarker(
+  existing: ProfileUsageStats | undefined,
+  now: number,
+): Partial<ProfileUsageStats> {
+  const currentPeriod = getCurrentBillingPeriodKey(now);
+  if (!existing?.monthlyDisabledPeriod) {
+    return {};
+  }
+  if (existing.monthlyDisabledPeriod === currentPeriod) {
+    return {
+      monthlyDisabledPeriod: existing.monthlyDisabledPeriod,
+      monthlyDisabledReason: existing.monthlyDisabledReason,
+      monthlyDisabledAt: existing.monthlyDisabledAt,
+    };
+  }
+  return {
+    monthlyDisabledPeriod: undefined,
+    monthlyDisabledReason: undefined,
+    monthlyDisabledAt: undefined,
+  };
+}
+
 function resetUsageStats(
   existing: ProfileUsageStats | undefined,
   overrides?: Partial<ProfileUsageStats>,
 ): ProfileUsageStats {
   return {
     ...existing,
+    ...normalizeMonthlyDisabledMarker(existing, Date.now()),
     errorCount: 0,
     cooldownUntil: undefined,
     disabledUntil: undefined,
@@ -422,6 +452,7 @@ function computeNextProfileUsageStats(params: {
 
   const updatedStats: ProfileUsageStats = {
     ...params.existing,
+    ...normalizeMonthlyDisabledMarker(params.existing, params.now),
     errorCount: nextErrorCount,
     failureCounts,
     lastFailureAt: params.now,
@@ -442,6 +473,11 @@ function computeNextProfileUsageStats(params: {
       recomputedUntil: params.now + backoffMs,
     });
     updatedStats.disabledReason = params.reason;
+    if (params.reason === "billing") {
+      updatedStats.monthlyDisabledPeriod = getCurrentBillingPeriodKey(params.now);
+      updatedStats.monthlyDisabledReason = params.reason;
+      updatedStats.monthlyDisabledAt = params.now;
+    }
   } else {
     const backoffMs = calculateAuthProfileCooldownMs(nextErrorCount);
     // Keep active cooldown windows immutable so retries within the window

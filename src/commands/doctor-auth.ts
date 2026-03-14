@@ -274,7 +274,11 @@ export async function noteAuthProfileHealth(params: {
         kind: disabledActive ? "disabled" : "cooldown",
         reason: stats?.disabledReason,
       });
-      out.push(`- ${profileId}: ${kind} (${remaining})${hint ? ` — ${hint}` : ""}`);
+      const monthlyMarker =
+        stats?.monthlyDisabledPeriod && stats?.monthlyDisabledReason === "billing"
+          ? ` [monthly-marked=${stats.monthlyDisabledPeriod}]`
+          : "";
+      out.push(`- ${profileId}: ${kind} (${remaining})${monthlyMarker}${hint ? ` — ${hint}` : ""}`);
     }
     return out;
   })();

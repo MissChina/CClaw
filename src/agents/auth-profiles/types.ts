@@ -58,6 +58,12 @@ export type ProfileUsageStats = {
   errorCount?: number;
   failureCounts?: Partial<Record<AuthProfileFailureReason, number>>;
   lastFailureAt?: number;
+  /** Month key like 2026-03 when the profile was marked billing-disabled for the month. */
+  monthlyDisabledPeriod?: string;
+  /** Why the monthly marker was set; currently most useful for billing-style lockouts. */
+  monthlyDisabledReason?: AuthProfileFailureReason;
+  /** Timestamp when the monthly marker was last written. */
+  monthlyDisabledAt?: number;
 };
 
 export type AuthProfileStore = {
