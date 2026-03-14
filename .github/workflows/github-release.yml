@@ -10,7 +10,7 @@ on:
         description: "Optional override release version; defaults to package.json version"
         required: false
       force:
-        description: "Force release even if tag/release already exists"
+        description: "Force refresh the GitHub Release even if it already exists"
         required: false
         type: boolean
         default: false
@@ -58,21 +58,8 @@ jobs:
             echo "::error::package.json version ${package_version} does not match requested release version ${version}"
             exit 1
           fi
-          tag="v${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
-
-      - name: Check if tag already exists
-        id: tag_state
-        shell: bash
-        run: |
-          set -euo pipefail
-          git fetch --tags origin
-          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.vars.outputs.tag }}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tag=v${version}" >> "$GITHUB_OUTPUT"
 
       - name: Check if release already exists
         id: release_state
@@ -81,12 +68,13 @@ jobs:
           script: |
             const tag = `${{ steps.vars.outputs.tag }}`;
             try {
-              await github.rest.repos.getReleaseByTag({
+              const release = await github.rest.repos.getReleaseByTag({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
                 tag,
               });
               core.setOutput('exists', 'true');
+              core.setOutput('release_id', String(release.data.id));
             } catch (error) {
               if (error.status === 404) {
                 core.setOutput('exists', 'false');
@@ -95,26 +83,29 @@ jobs:
               throw error;
             }
 
-      - name: Skip duplicate auto release
-        if: github.event_name == 'push' && steps.tag_state.outputs.exists == 'true' && steps.release_state.outputs.exists == 'true'
-        shell: bash
-        run: |
-          echo "Tag and release already exist for ${{ steps.vars.outputs.tag }}; skipping duplicate auto release."
-          exit 0
-
-      - name: Create and push release tag
-        if: steps.tag_state.outputs.exists != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force)
+      - name: Decide whether to publish
+        id: gate
         shell: bash
         run: |
           set -euo pipefail
-          tag="${{ steps.vars.outputs.tag }}"
-          if git rev-parse "$tag" >/dev/null 2>&1; then
-            git tag -d "$tag"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" && "${{ inputs.force }}" == "true" ]]; then
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+            exit 0
           fi
-          git tag "$tag" "$GITHUB_SHA"
-          git push origin "$tag" --force
+          if [[ "${{ steps.release_state.outputs.exists }}" == "true" ]]; then
+            echo "should_publish=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_publish=true" >> "$GITHUB_OUTPUT"
+          fi
 
-      - name: Validate release tag and package metadata
+      - name: Skip duplicate auto release
+        if: steps.gate.outputs.should_publish != 'true'
+        shell: bash
+        run: |
+          echo "Release ${{ steps.vars.outputs.tag }} already exists; skipping build and publish."
+
+      - name: Validate release metadata
+        if: steps.gate.outputs.should_publish == 'true'
         env:
           RELEASE_SHA: ${{ github.sha }}
           RELEASE_TAG: ${{ steps.vars.outputs.tag }}
@@ -125,15 +116,19 @@ jobs:
           pnpm release:openclaw:npm:check
 
       - name: Check
+        if: steps.gate.outputs.should_publish == 'true'
         run: pnpm check
 
       - name: Build
+        if: steps.gate.outputs.should_publish == 'true'
         run: pnpm build
 
       - name: Verify release contents
+        if: steps.gate.outputs.should_publish == 'true'
         run: pnpm release:check
 
       - name: Pack npm release artifact
+        if: steps.gate.outputs.should_publish == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -141,6 +136,7 @@ jobs:
           npm pack --pack-destination .artifacts/release-assets
 
       - name: Generate checksums
+        if: steps.gate.outputs.should_publish == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -148,6 +144,7 @@ jobs:
           sha256sum * > SHA256SUMS.txt
 
       - name: Generate release notes and metadata
+        if: steps.gate.outputs.should_publish == 'true'
         env:
           GITHUB_REPOSITORY: ${{ github.repository }}
           GITHUB_SHA: ${{ github.sha }}
@@ -162,13 +159,15 @@ jobs:
             --output-dir .artifacts/release
 
       - name: Publish GitHub release
-        if: steps.release_state.outputs.exists != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force)
+        if: steps.gate.outputs.should_publish == 'true'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           name: OpenClaw ${{ steps.vars.outputs.version }}
           body_path: .artifacts/release/release-body.md
           fail_on_unmatched_files: true
+          generate_release_notes: false
           files: |
             .artifacts/release-assets/*
             .artifacts/release/release-notes.en.md
