@@ -2,18 +2,18 @@ name: GitHub Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       version:
-        description: "Release version, for example 2026.3.14 or 2026.3.14-beta.1"
-        required: true
-      create_tag:
-        description: "Create and push the release tag before publishing"
+        description: "Optional override release version; defaults to package.json version"
+        required: false
+      force:
+        description: "Force release even if tag/release already exists"
         required: false
         type: boolean
-        default: true
+        default: false
 
 concurrency:
   group: github-release-${{ github.ref || github.run_id }}
@@ -47,40 +47,72 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            version="${{ inputs.version }}"
-            tag="v${version}"
+          package_version="$(node -p "require('./package.json').version")"
+          requested_version="${{ inputs.version }}"
+          if [[ -n "$requested_version" ]]; then
+            version="$requested_version"
           else
-            tag="${GITHUB_REF_NAME}"
-            version="${tag#v}"
+            version="$package_version"
           fi
-          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          if [[ "$package_version" != "$version" ]]; then
+            echo "::error::package.json version ${package_version} does not match requested release version ${version}"
+            exit 1
+          fi
+          tag="v${version}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-      - name: Validate package version matches requested release
-        if: github.event_name == 'workflow_dispatch'
+      - name: Check if tag already exists
+        id: tag_state
         shell: bash
         run: |
           set -euo pipefail
-          package_version="$(node -p "require('./package.json').version")"
-          if [[ "$package_version" != "${{ steps.vars.outputs.version }}" ]]; then
-            echo "::error::package.json version ${package_version} does not match requested release version ${{ steps.vars.outputs.version }}"
-            exit 1
+          git fetch --tags origin
+          if git ls-remote --exit-code --tags origin "refs/tags/${{ steps.vars.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Check if release already exists
+        id: release_state
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = `${{ steps.vars.outputs.tag }}`;
+            try {
+              await github.rest.repos.getReleaseByTag({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                tag,
+              });
+              core.setOutput('exists', 'true');
+            } catch (error) {
+              if (error.status === 404) {
+                core.setOutput('exists', 'false');
+                return;
+              }
+              throw error;
+            }
+
+      - name: Skip duplicate auto release
+        if: github.event_name == 'push' && steps.tag_state.outputs.exists == 'true' && steps.release_state.outputs.exists == 'true'
+        shell: bash
+        run: |
+          echo "Tag and release already exist for ${{ steps.vars.outputs.tag }}; skipping duplicate auto release."
+          exit 0
+
       - name: Create and push release tag
-        if: github.event_name == 'workflow_dispatch' && inputs.create_tag
+        if: steps.tag_state.outputs.exists != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force)
         shell: bash
         run: |
           set -euo pipefail
           tag="${{ steps.vars.outputs.tag }}"
-          git fetch --tags origin
           if git rev-parse "$tag" >/dev/null 2>&1; then
-            echo "::error::Tag $tag already exists locally or on remote."
-            exit 1
+            git tag -d "$tag"
           fi
-          git tag "$tag"
-          git push origin "$tag"
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "$tag" --force
 
       - name: Validate release tag and package metadata
         env:
@@ -130,6 +162,7 @@ jobs:
             --output-dir .artifacts/release
 
       - name: Publish GitHub release
+        if: steps.release_state.outputs.exists != 'true' || (github.event_name == 'workflow_dispatch' && inputs.force)
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.vars.outputs.tag }}
