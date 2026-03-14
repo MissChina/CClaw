@@ -24,6 +24,8 @@ export type TokenCredential = {
   /** Optional expiry timestamp (ms since epoch). */
   expires?: number;
   email?: string;
+  /** Optional provider-specific metadata (e.g., GitHub login / user id). */
+  metadata?: Record<string, string>;
 };
 
 export type OAuthCredential = OAuthCredentials & {
